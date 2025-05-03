@@ -209,53 +209,29 @@ class LabelPrintingService {
 
   // Criar QR code como imagem para o PDF
   Future<pw.Widget> _createQrCodeImage(String data, double size) async {
-    try {
-      final qrValidationResult = QrValidator.validate(
-        data: data,
-        version: QrVersions.auto,
-        errorCorrectionLevel: QrErrorCorrectLevel.L,
-      );
+    return pw.BarcodeWidget(
+      barcode: pw.Barcode.qrCode(),
+      data: data,
+      width: size,
+      height: size,
+      color: PdfColors.black,
+      drawText: false,
+    );
+  }
 
-      if (qrValidationResult.status == QrValidationStatus.valid) {
-        final qrCode = qrValidationResult.qrCode!;
-        final painter = QrPainter.withQr(
-          qr: qrCode,
-          color: Colors.black,
-          emptyColor: Colors.white,
-          gapless: true,
-        );
-
-        final imageSize = size.toInt();
-        final imageData = await painter.toImageData(imageSize.toDouble());
-        final bytes = imageData!.buffer.asUint8List();
-
-        return pw.Image(
-          pw.MemoryImage(bytes),
-          width: size,
-          height: size,
-        );
-      } else {
-        _logService.error('Erro ao gerar QR code: dados inválidos', category: 'label');
-        return pw.Container(
-          width: size,
-          height: size,
-          color: PdfColors.grey300,
-          child: pw.Center(
-            child: pw.Text('QR Error'),
-          ),
-        );
-      }
-    } catch (e) {
-      _logService.error('Erro ao gerar QR code', error: e, category: 'label');
-      return pw.Container(
-        width: size,
-        height: size,
-        color: PdfColors.grey300,
-        child: pw.Center(
-          child: pw.Text('QR Error'),
-        ),
-      );
-    }
+  // Criar código de barras como imagem para o PDF
+  pw.Widget _createBarcodeWidget(String data, double width, double height, double fontSize) {
+    // Garantir que a largura seja positiva
+    final barcodeWidth = max(width, 10.0);
+    
+    return pw.BarcodeWidget(
+      barcode: pw.Barcode.code128(),
+      data: data,
+      width: barcodeWidth,
+      height: height,
+      textStyle: pw.TextStyle(fontSize: fontSize),
+      drawText: true,
+    );
   }
 
   // Gerar documento PDF com etiquetas
@@ -299,7 +275,7 @@ class LabelPrintingService {
         author: 'BoxMagic',
         creator: 'BoxMagic App',
         subject: 'Etiquetas para caixas',
-        keywords: ['etiqueta', 'caixa', 'boxmagic'],
+        keywords: 'etiqueta, caixa, boxmagic',
         producer: 'BoxMagic PDF Generator',
       );
       
@@ -457,39 +433,7 @@ class LabelPrintingService {
     // Criar código de barras se necessário
     pw.Widget? barcodeWidget;
     if (includeBarcode && box.id != null) {
-      // Garantir que a largura do código de barras seja sempre positiva
-      final safeWidth = max(barcodeWidth, 10.0); // Mínimo de 10 pontos de largura
-      
-      try {
-        barcodeWidget = pw.BarcodeWidget(
-          barcode: pw.Barcode.code128(),
-          data: box.id.toString(),
-          width: safeWidth,
-          height: barcodeHeight,
-          drawText: true,
-          textStyle: pw.TextStyle(
-            fontSize: idFontSize * 0.8,
-          ),
-        );
-      } catch (e) {
-        _logService.error('Erro ao gerar código de barras', error: e, category: 'label');
-        // Fallback para texto simples em caso de erro
-        barcodeWidget = pw.Container(
-          width: safeWidth,
-          height: barcodeHeight,
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: PdfColors.black),
-          ),
-          alignment: pw.Alignment.center,
-          child: pw.Text(
-            'ID: ${box.id}',
-            style: pw.TextStyle(
-              fontSize: idFontSize * 0.8,
-              fontWeight: pw.FontWeight.bold,
-            ),
-          ),
-        );
-      }
+      barcodeWidget = _createBarcodeWidget(box.id.toString(), barcodeWidth, barcodeHeight, idFontSize);
     }
     
     // Construir layout da etiqueta de acordo com o formato e orientação
@@ -499,7 +443,7 @@ class LabelPrintingService {
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         mainAxisAlignment: pw.MainAxisAlignment.start,
         children: [
-          if (includeBoxName)
+          if (includeBoxName && box.name.isNotEmpty)
             pw.Container(
               width: labelWidth,
               child: pw.Text(
@@ -516,7 +460,7 @@ class LabelPrintingService {
           
           pw.SizedBox(height: 4),
           
-          if (includeLocation && box.location != null && box.location!.isNotEmpty)
+          if (includeLocation && box.location?.isNotEmpty == true)
             pw.Container(
               width: labelWidth,
               child: pw.Text(
@@ -531,7 +475,7 @@ class LabelPrintingService {
               ),
             ),
             
-          if (includeCategory && box.category != null && box.category!.isNotEmpty)
+          if (includeCategory && box.category.isNotEmpty)
             pw.Container(
               width: labelWidth,
               child: pw.Text(
@@ -593,7 +537,7 @@ class LabelPrintingService {
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               mainAxisAlignment: pw.MainAxisAlignment.center,
               children: [
-                if (includeBoxName)
+                if (includeBoxName && box.name.isNotEmpty)
                   pw.Text(
                     box.name,
                     style: pw.TextStyle(
@@ -606,7 +550,7 @@ class LabelPrintingService {
                 
                 pw.SizedBox(height: 2),
                 
-                if (includeLocation && box.location != null && box.location!.isNotEmpty)
+                if (includeLocation && box.location?.isNotEmpty == true)
                   pw.Text(
                     'Local: ${box.location}',
                     style: pw.TextStyle(
@@ -617,7 +561,7 @@ class LabelPrintingService {
                     overflow: pw.TextOverflow.clip,
                   ),
                   
-                if (includeCategory && box.category != null && box.category!.isNotEmpty)
+                if (includeCategory && box.category.isNotEmpty)
                   pw.Text(
                     'Categoria: ${box.category}',
                     style: pw.TextStyle(
@@ -691,16 +635,16 @@ class LabelPrintingService {
       if (paperType == LabelPaperType.carta25x67) {
         // Formato Carta (Letter) - 215.9 x 279.4 mm
         pageFormat = isPortraitPage
-            ? PdfPageFormat(215.9 * PdfPageFormat.mm, 279.4 * PdfPageFormat.mm, marginAll: 0)
-            : PdfPageFormat(279.4 * PdfPageFormat.mm, 215.9 * PdfPageFormat.mm, marginAll: 0);
+            ? PdfPageFormat(215.9 * PdfPageFormat.mm, 279.4 * PdfPageFormat.mm, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0)
+            : PdfPageFormat(279.4 * PdfPageFormat.mm, 215.9 * PdfPageFormat.mm, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0);
       } else if (paperType == LabelPaperType.ecommerce100x150) {
         // Formato personalizado para etiqueta de e-commerce
-        pageFormat = PdfPageFormat(100 * PdfPageFormat.mm, 150 * PdfPageFormat.mm, marginAll: 0);
+        pageFormat = PdfPageFormat(100 * PdfPageFormat.mm, 150 * PdfPageFormat.mm, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0);
       } else {
         // Formato A4 padrão
         pageFormat = isPortraitPage
-            ? PdfPageFormat.a4.copyWith(marginAll: 0)
-            : PdfPageFormat.a4.landscape.copyWith(marginAll: 0);
+            ? PdfPageFormat.a4.copyWith(marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0)
+            : PdfPageFormat.a4.landscape.copyWith(marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0);
       }
       
       // Configurações específicas para cada modelo de impressora
@@ -733,8 +677,6 @@ class LabelPrintingService {
           );
           break;
         case PrinterModel.generic:
-        default:
-          // Configurações para impressora genérica
           break;
       }
       
