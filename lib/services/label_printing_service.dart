@@ -221,14 +221,31 @@ class LabelPrintingService {
 
   // Criar código de barras como imagem para o PDF
   pw.Widget _createBarcodeWidget(String data, double width, double height, double fontSize) {
-    // Garantir que a largura seja positiva
+    // Garantir que a largura seja positiva e adequada
     final barcodeWidth = max(width, 10.0);
+    
+    // Calcular a proporção ideal para o código de barras
+    // Códigos de barras padrão têm uma proporção de altura:largura de aproximadamente 1:3
+    final double idealRatio = 0.33; // Altura / Largura
+    final double currentRatio = height / barcodeWidth;
+    
+    // Ajustar altura ou largura para manter a proporção adequada
+    double adjustedHeight = height;
+    double adjustedWidth = barcodeWidth;
+    
+    if (currentRatio > idealRatio * 1.5) {
+      // Código de barras está muito alto em relação à largura
+      adjustedHeight = barcodeWidth * idealRatio;
+    } else if (currentRatio < idealRatio * 0.5) {
+      // Código de barras está muito largo em relação à altura
+      adjustedWidth = height / idealRatio;
+    }
     
     return pw.BarcodeWidget(
       barcode: pw.Barcode.code128(),
       data: data,
-      width: barcodeWidth,
-      height: height,
+      width: adjustedWidth,
+      height: adjustedHeight,
       textStyle: pw.TextStyle(fontSize: fontSize),
       drawText: true,
     );
@@ -281,6 +298,47 @@ class LabelPrintingService {
       
       // Obter cor da etiqueta
       final backgroundColor = _labelColors[labelColor] ?? PdfColors.white;
+      
+      // Adicionar informações sobre o tipo de etiqueta na primeira página
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pageFormat,
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  'Informações da Etiqueta',
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 10),
+                pw.Text('Tipo de papel: ${labelConfig['paperType']}'),
+                pw.Text('Tamanho do papel: ${labelConfig['paperSize']}'),
+                pw.Text('Dimensões da etiqueta: ${labelConfig['width'].toStringAsFixed(1)} x ${labelConfig['height'].toStringAsFixed(1)} mm'),
+                pw.Text('Orientação: ${labelConfig['orientation']}'),
+                pw.Text('Etiquetas por folha: ${labelConfig['totalLabels']}'),
+                pw.SizedBox(height: 20),
+                pw.Text(
+                  'Etiquetas a serem impressas: ${boxes.length}',
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                ),
+                pw.Divider(),
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  'Preview das Etiquetas',
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      );
       
       // Calcular número de etiquetas por página
       final int labelsPerPage = (labelConfig['columns'] as int) * (labelConfig['rows'] as int);
@@ -357,20 +415,45 @@ class LabelPrintingService {
                               border: pw.Border.all(color: PdfColors.grey300),
                             ),
                             padding: const pw.EdgeInsets.all(4),
-                            child: _buildLabelContentSync(
-                              box: box,
-                              format: format,
-                              includeQrCode: includeQrCode,
-                              includeBarcode: includeBarcode,
-                              includeBoxName: includeBoxName,
-                              includeLocation: includeLocation,
-                              includeCategory: includeCategory,
-                              qrCodeWidget: includeQrCode && box.id != null ? qrCodeWidgets[box.id!] : null,
-                              titleFontSize: titleFontSize,
-                              subtitleFontSize: subtitleFontSize,
-                              idFontSize: idFontSize,
-                              labelWidth: labelConfig['width'],
-                              labelHeight: labelConfig['height'],
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              mainAxisSize: pw.MainAxisSize.min,
+                              children: [
+                                pw.Container(
+                                  width: labelConfig['width'] - 8, // Ajuste para o padding
+                                  height: 10,
+                                  decoration: pw.BoxDecoration(
+                                    color: PdfColors.grey100,
+                                    borderRadius: const pw.BorderRadius.only(
+                                      topLeft: pw.Radius.circular(2),
+                                      topRight: pw.Radius.circular(2),
+                                    ),
+                                  ),
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 2),
+                                  alignment: pw.Alignment.centerRight,
+                                  child: pw.Text(
+                                    '${labelConfig['width'].toStringAsFixed(1)}x${labelConfig['height'].toStringAsFixed(1)}mm',
+                                    style: pw.TextStyle(fontSize: 6, color: PdfColors.grey700),
+                                  ),
+                                ),
+                                pw.Expanded(
+                                  child: _buildLabelContentSync(
+                                    box: box,
+                                    format: format,
+                                    includeQrCode: includeQrCode,
+                                    includeBarcode: includeBarcode,
+                                    includeBoxName: includeBoxName,
+                                    includeLocation: includeLocation,
+                                    includeCategory: includeCategory,
+                                    qrCodeWidget: includeQrCode && box.id != null ? qrCodeWidgets[box.id!] : null,
+                                    titleFontSize: titleFontSize,
+                                    subtitleFontSize: subtitleFontSize,
+                                    idFontSize: idFontSize,
+                                    labelWidth: labelConfig['width'] - 8, // Ajuste para o padding
+                                    labelHeight: labelConfig['height'] - 14, // Ajuste para o padding e cabeçalho
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -379,6 +462,20 @@ class LabelPrintingService {
                         return pw.Container(
                           width: labelConfig['width'],
                           height: labelConfig['height'],
+                          decoration: pw.BoxDecoration(
+                            border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                            color: PdfColors.grey100.withOpacity(0.3),
+                          ),
+                          child: pw.Center(
+                            child: pw.Text(
+                              'Sem etiqueta',
+                              style: pw.TextStyle(
+                                color: PdfColors.grey,
+                                fontSize: 8,
+                                fontStyle: pw.FontStyle.italic,
+                              ),
+                            ),
+                          ),
                         );
                       }
                     }),

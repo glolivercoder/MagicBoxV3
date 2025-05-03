@@ -150,7 +150,46 @@ Este documento contém o plano de implementação das funcionalidades do aplicat
 
 ## Progresso de Implementação
 
-### Implementação Atual: Melhorias no Layout e Responsividade das Etiquetas
+### Implementação Atual: Aprimoramento do Preview de Etiquetas e Correção de Deformações
+
+**Status:** Concluído
+
+**Descrição:** Melhorias na visualização e geração de etiquetas, com foco na experiência do usuário e na qualidade da impressão.
+
+**Alterações Realizadas:**
+
+1. **Informações Detalhadas no Preview:**
+   - Adicionada página inicial com informações completas sobre o tipo de etiqueta
+   - Inclusão de dimensões exatas (comprimento x altura) em cada etiqueta
+   - Exibição do tipo de papel, orientação e quantidade total de etiquetas por folha
+   - Contador de etiquetas a serem impressas para melhor planejamento
+
+2. **Indicadores Visuais para Etiquetas Vazias:**
+   - Bordas cinzas para etiquetas que não serão impressas (apenas no preview)
+   - Texto informativo "Sem etiqueta" para facilitar a identificação
+   - Fundo levemente acinzentado para diferenciar visualmente das etiquetas reais
+
+3. **Correção de Deformações no Código de Barras:**
+   - Implementado algoritmo de proporção ideal para códigos de barras (1:3)
+   - Ajuste automático de altura e largura para evitar deformações
+   - Manutenção da legibilidade em todos os tamanhos de etiqueta
+   - Tratamento especial para formatos maiores de impressão
+
+4. **Otimização do Layout:**
+   - Cabeçalho informativo em cada etiqueta com suas dimensões
+   - Melhor aproveitamento do espaço disponível
+   - Ajustes automáticos de tamanho de fonte baseados na área da etiqueta
+   - Posicionamento otimizado dos elementos para maximizar a legibilidade
+
+**Próximos passos:**
+
+1. Implementar opção para personalizar a densidade do código de barras
+2. Adicionar suporte para mais formatos de etiquetas comerciais
+3. Permitir a personalização de cores e estilos de fonte
+4. Implementar opção para salvar configurações de etiquetas favoritas
+5. Adicionar suporte para impressoras térmicas específicas
+
+### Implementação Anterior: Melhorias no Layout e Responsividade das Etiquetas
 
 **Status:** Concluído
 
