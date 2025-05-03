@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:boxmagic/services/log_service.dart';
-import 'package:boxmagic/services/orm_service.dart';
-import 'package:boxmagic/models/box.dart';
-import 'package:boxmagic/screens/items_screen.dart';
-import 'package:boxmagic/screens/box_detail_screen.dart';
-import 'package:boxmagic/screens/box_id_recognition_screen.dart';
+import '../models/box.dart';
+import '../screens/box_detail_screen.dart';
+import '../screens/box_id_recognition_screen.dart';
+import '../services/log_service.dart';
+import '../services/orm_service.dart';
+import '../services/barcode_scanner_service.dart';
+import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
+import '../screens/items_screen.dart';
+import '../screens/barcode_generator_screen.dart';
 import 'dart:math';
 
 class BoxesScreen extends StatefulWidget {
@@ -77,6 +80,7 @@ class _BoxesScreenState extends State<BoxesScreen> {
   
   final LogService _logService = LogService();
   final OrmService _ormService = OrmService();
+  final BarcodeScannerService _barcodeScannerService = BarcodeScannerService();
   
   List<Box> _boxes = [];
   bool _isLoading = true;
@@ -175,12 +179,66 @@ class _BoxesScreenState extends State<BoxesScreen> {
   }
 
   // Métodos privados chamados pelos métodos públicos da classe BoxesScreen
-  void _showBarcodeScanner(BuildContext context) {
-    _logService.info('Iniciando scanner de código de barras', category: 'scanner');
-    // Implementação temporária
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Scanner de código de barras (em implementação)')),
-    );
+  void _showBarcodeScanner(BuildContext context) async {
+    _logService.info('Iniciando scanner de código de barras/QR code', category: 'scanner');
+    
+    try {
+      // Usar o serviço de scanner de código de barras
+      final barcodeScanRes = await _barcodeScannerService.scanBarcode(context);
+      
+      // Se o usuário cancelou o escaneamento ou não retornou nenhum código
+      if (barcodeScanRes == null || barcodeScanRes.isEmpty) {
+        _logService.info('Escaneamento cancelado pelo usuário', category: 'scanner');
+        return;
+      }
+      
+      _logService.info('Código escaneado: $barcodeScanRes', category: 'scanner');
+      
+      // Extrair o ID da caixa do código escaneado
+      final boxId = _barcodeScannerService.extractBoxId(barcodeScanRes);
+      
+      if (boxId != null && mounted) {
+        // Buscar a caixa pelo ID
+        final box = await _ormService.getBox(boxId);
+        
+        if (box != null && mounted) {
+          // Navegar para a tela de detalhes da caixa
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => BoxDetailScreen(box: box),
+            ),
+          );
+        } else if (mounted) {
+          // Caixa não encontrada
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Caixa com ID $boxId não encontrada'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } else if (mounted) {
+        // Código não reconhecido como ID de caixa
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Código não reconhecido como ID de caixa: $barcodeScanRes'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      _logService.error('Erro ao escanear código', error: e, category: 'scanner');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao escanear código: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _showBoxIdRecognition(BuildContext context) {
@@ -195,10 +253,15 @@ class _BoxesScreenState extends State<BoxesScreen> {
   }
 
   void _showPrintLabelsDialog(BuildContext context) {
-    _logService.info('Abrindo diálogo de impressão de etiquetas', category: 'print');
-    // Implementação temporária
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Impressão de etiquetas (em implementação)')),
+    _logService.info('Abrindo gerador de etiquetas', category: 'print');
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BarcodeGeneratorScreen(
+          boxes: _boxes,
+        ),
+      ),
     );
   }
 
