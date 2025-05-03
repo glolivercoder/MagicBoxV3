@@ -255,13 +255,11 @@ class LabelPrintingService {
   Future<Uint8List> generateLabels({
     required List<Box> boxes,
     required LabelPaperType paperType,
-    required LabelFormat format,
     required bool includeQrCode,
     required bool includeBarcode,
     required bool includeBoxName,
     required bool includeLocation,
     required bool includeCategory,
-    String labelColor = 'Branco',
     Map<String, dynamic>? customLabelConfig,
   }) async {
     try {
@@ -297,7 +295,7 @@ class LabelPrintingService {
       );
       
       // Obter cor da etiqueta
-      final backgroundColor = _labelColors[labelColor] ?? PdfColors.white;
+      final backgroundColor = _labelColors['Branco'] ?? PdfColors.white;
       
       // Adicionar informações sobre o tipo de etiqueta na primeira página
       pdf.addPage(
@@ -439,7 +437,6 @@ class LabelPrintingService {
                                 pw.Expanded(
                                   child: _buildLabelContentSync(
                                     box: box,
-                                    format: format,
                                     includeQrCode: includeQrCode,
                                     includeBarcode: includeBarcode,
                                     includeBoxName: includeBoxName,
@@ -464,7 +461,7 @@ class LabelPrintingService {
                           height: labelConfig['height'],
                           decoration: pw.BoxDecoration(
                             border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
-                            color: PdfColors.grey100.withOpacity(0.3),
+                            color: PdfColors.grey200,
                           ),
                           child: pw.Center(
                             child: pw.Text(
@@ -495,10 +492,9 @@ class LabelPrintingService {
     }
   }
 
-  // Construir conteúdo da etiqueta (versão síncrona)
+  // Construir conteúdo da etiqueta
   pw.Widget _buildLabelContentSync({
     required Box box,
-    required LabelFormat format,
     required bool includeQrCode,
     required bool includeBarcode,
     required bool includeBoxName,
@@ -511,21 +507,41 @@ class LabelPrintingService {
     required double labelWidth,
     required double labelHeight,
   }) {
-    // Determinar orientação da etiqueta
+    // Variáveis para armazenar os textos
+    String boxName = 'Sem nome';
+    String location = '';
+    String category = '';
+    
+    // Verificar se deve mostrar o nome da caixa
+    if (includeBoxName && box.name.isNotEmpty) {
+      boxName = box.name;
+    }
+    
+    // Verificar se deve mostrar a localização
+    if (includeLocation && box.location?.isNotEmpty == true) {
+      location = box.location!;
+    }
+    
+    // Verificar se deve mostrar a categoria
+    if (includeCategory && box.category.isNotEmpty) {
+      category = box.category;
+    }
+    
+    // Determinar se a etiqueta é retrato ou paisagem
     final bool isPortrait = labelHeight > labelWidth;
     
-    // Calcular tamanho do QR code baseado na orientação
+    // Calcular tamanhos para QR code e código de barras
     final double qrCodeSize = isPortrait 
-        ? min(labelWidth * 0.8, labelHeight * 0.3) 
+        ? min(labelWidth * 0.8, labelHeight * 0.3)
         : min(labelWidth * 0.3, labelHeight * 0.8);
     
-    // Calcular tamanho do código de barras baseado na orientação
-    final double barcodeWidth = isPortrait 
-        ? labelWidth * 0.9 
-        : labelWidth * 0.6;
-    final double barcodeHeight = isPortrait 
-        ? 20.0 
-        : 30.0;
+    final double barcodeWidth = isPortrait
+        ? labelWidth * 0.9
+        : labelWidth * 0.5;
+    
+    final double barcodeHeight = isPortrait
+        ? labelHeight * 0.15
+        : labelHeight * 0.2;
     
     // Criar código de barras se necessário
     pw.Widget? barcodeWidget;
@@ -535,7 +551,7 @@ class LabelPrintingService {
     
     // Construir layout da etiqueta de acordo com o formato e orientação
     if (isPortrait) {
-      // Layout para etiquetas em modo retrato (altura > largura)
+      // Layout para etiqueta em formato retrato
       return pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         mainAxisAlignment: pw.MainAxisAlignment.start,
@@ -544,13 +560,13 @@ class LabelPrintingService {
             pw.Container(
               width: labelWidth,
               child: pw.Text(
-                box.name,
+                boxName,
                 style: pw.TextStyle(
                   fontSize: titleFontSize,
                   fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.black,
                 ),
                 textAlign: pw.TextAlign.center,
-                maxLines: 2,
                 overflow: pw.TextOverflow.clip,
               ),
             ),
@@ -564,10 +580,10 @@ class LabelPrintingService {
                 'Local: ${box.location}',
                 style: pw.TextStyle(
                   fontSize: subtitleFontSize,
-                  fontStyle: pw.FontStyle.italic,
+                  color: PdfColors.black,
+                  fontWeight: pw.FontWeight.bold,
                 ),
                 textAlign: pw.TextAlign.center,
-                maxLines: 1,
                 overflow: pw.TextOverflow.clip,
               ),
             ),
@@ -579,16 +595,17 @@ class LabelPrintingService {
                 'Categoria: ${box.category}',
                 style: pw.TextStyle(
                   fontSize: subtitleFontSize,
-                  fontStyle: pw.FontStyle.italic,
+                  color: PdfColors.black,
+                  fontWeight: pw.FontWeight.bold,
                 ),
                 textAlign: pw.TextAlign.center,
-                maxLines: 1,
                 overflow: pw.TextOverflow.clip,
               ),
             ),
           
           pw.Spacer(),
           
+          // QR Code
           if (includeQrCode && qrCodeWidget != null)
             pw.Container(
               width: qrCodeSize,
@@ -598,28 +615,34 @@ class LabelPrintingService {
           
           pw.SizedBox(height: 4),
           
+          // Código de barras
           if (includeBarcode && barcodeWidget != null)
             pw.Container(
               width: barcodeWidth,
+              height: barcodeHeight,
               child: barcodeWidget,
             ),
           
-          if (!includeBarcode && box.id != null)
+          // ID da caixa
+          if (box.id != null)
             pw.Text(
               'ID: ${box.id}',
               style: pw.TextStyle(
                 fontSize: idFontSize,
                 fontWeight: pw.FontWeight.bold,
+                color: PdfColors.black,
               ),
-              textAlign: pw.TextAlign.center,
             ),
+          
+          pw.SizedBox(height: 2),
         ],
       );
     } else {
-      // Layout para etiquetas em modo paisagem (largura > altura)
+      // Layout para etiqueta em formato paisagem
       return pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
+          // QR Code à esquerda
           if (includeQrCode && qrCodeWidget != null)
             pw.Container(
               width: qrCodeSize,
@@ -629,6 +652,7 @@ class LabelPrintingService {
           
           pw.SizedBox(width: 8),
           
+          // Informações no centro
           pw.Expanded(
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -636,12 +660,12 @@ class LabelPrintingService {
               children: [
                 if (includeBoxName && box.name.isNotEmpty)
                   pw.Text(
-                    box.name,
+                    boxName,
                     style: pw.TextStyle(
                       fontSize: titleFontSize,
                       fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.black,
                     ),
-                    maxLines: 1,
                     overflow: pw.TextOverflow.clip,
                   ),
                 
@@ -652,9 +676,9 @@ class LabelPrintingService {
                     'Local: ${box.location}',
                     style: pw.TextStyle(
                       fontSize: subtitleFontSize,
-                      fontStyle: pw.FontStyle.italic,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.black,
                     ),
-                    maxLines: 1,
                     overflow: pw.TextOverflow.clip,
                   ),
                   
@@ -663,28 +687,37 @@ class LabelPrintingService {
                     'Categoria: ${box.category}',
                     style: pw.TextStyle(
                       fontSize: subtitleFontSize,
-                      fontStyle: pw.FontStyle.italic,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.black,
                     ),
-                    maxLines: 1,
                     overflow: pw.TextOverflow.clip,
                   ),
                 
-                pw.Spacer(),
+                pw.SizedBox(height: 2),
                 
-                if (includeBarcode && barcodeWidget != null)
-                  barcodeWidget,
-                
-                if (!includeBarcode && box.id != null)
+                // ID da caixa
+                if (box.id != null)
                   pw.Text(
                     'ID: ${box.id}',
                     style: pw.TextStyle(
                       fontSize: idFontSize,
                       fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.black,
                     ),
                   ),
               ],
             ),
           ),
+          
+          pw.SizedBox(width: 8),
+          
+          // Código de barras à direita
+          if (includeBarcode && barcodeWidget != null)
+            pw.Container(
+              width: barcodeWidth,
+              height: barcodeHeight,
+              child: barcodeWidget,
+            ),
         ],
       );
     }
@@ -694,13 +727,11 @@ class LabelPrintingService {
   Future<void> printLabels({
     required List<Box> boxes,
     required LabelPaperType paperType,
-    required LabelFormat format,
     required bool includeQrCode,
     required bool includeBarcode,
     required bool includeBoxName,
     required bool includeLocation,
     required bool includeCategory,
-    required String labelColor,
     required PrinterModel printerModel,
   }) async {
     try {
@@ -713,13 +744,11 @@ class LabelPrintingService {
       final pdfData = await generateLabels(
         boxes: boxes,
         paperType: paperType,
-        format: format,
         includeQrCode: includeQrCode,
         includeBarcode: includeBarcode,
         includeBoxName: includeBoxName,
         includeLocation: includeLocation,
         includeCategory: includeCategory,
-        labelColor: labelColor,
       );
       
       // Determinar orientação da página
@@ -795,13 +824,11 @@ class LabelPrintingService {
   Future<void> sharePdf({
     required List<Box> boxes,
     required LabelPaperType paperType,
-    required LabelFormat format,
     required bool includeQrCode,
     required bool includeBarcode,
     required bool includeBoxName,
     required bool includeLocation,
     required bool includeCategory,
-    required String labelColor,
     required PrinterModel printerModel,
   }) async {
     try {
@@ -814,13 +841,11 @@ class LabelPrintingService {
       final pdfData = await generateLabels(
         boxes: boxes,
         paperType: paperType,
-        format: format,
         includeQrCode: includeQrCode,
         includeBarcode: includeBarcode,
         includeBoxName: includeBoxName,
         includeLocation: includeLocation,
         includeCategory: includeCategory,
-        labelColor: labelColor,
       );
       
       // Nome do arquivo com informações sobre o tipo de etiqueta
@@ -836,5 +861,10 @@ class LabelPrintingService {
       _logService.error('Erro ao compartilhar PDF de etiquetas', error: e, category: 'label');
       rethrow;
     }
+  }
+  
+  // Obter configuração de etiqueta
+  Map<String, dynamic>? getLabelConfig(LabelPaperType paperType) {
+    return _labelConfigs[paperType];
   }
 }

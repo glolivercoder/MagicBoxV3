@@ -150,7 +150,83 @@ Este documento contém o plano de implementação das funcionalidades do aplicat
 
 ## Progresso de Implementação
 
-### Implementação Atual: Aprimoramento do Preview de Etiquetas e Correção de Deformações
+### Implementação Atual: Melhorias na Visualização de Informações de Etiquetas
+
+**Status:** Concluído
+
+**Descrição:** Aprimoramento da interface de geração de etiquetas para exibir informações detalhadas sobre o tipo de etiqueta selecionada diretamente na tela de configuração, antes da impressão.
+
+**Alterações Realizadas:**
+
+1. **Exibição de Informações Detalhadas na Tela de Seleção:**
+   - Adicionado painel informativo que exibe detalhes completos da etiqueta selecionada
+   - Informações incluídas: tipo de papel, modelo, dimensões, orientação e quantidade de etiquetas por folha
+   - Atualização em tempo real ao trocar o tipo de etiqueta
+   - Estilo visual destacado com fundo azul claro para fácil visualização
+
+2. **Exemplo Visual Responsivo:**
+   - Implementado exemplo visual que se adapta automaticamente ao formato da etiqueta selecionada
+   - Mantém a proporção correta entre largura e altura conforme o tipo de etiqueta
+   - Exibe layout diferente para orientações retrato e paisagem
+   - Ajusta o tamanho dos elementos (QR code, código de barras, textos) proporcionalmente
+
+3. **Melhorias na API de Serviço:**
+   - Adicionado método `getLabelConfig` no serviço de impressão para acessar configurações de etiquetas
+   - Remoção de parâmetros desnecessários nos métodos de impressão
+   - Correção de erros relacionados a parâmetros obsoletos
+
+4. **Otimização da Interface:**
+   - Melhor organização visual das opções de configuração
+   - Feedback visual mais claro sobre o tipo de etiqueta selecionada
+   - Exemplo visual mais preciso e representativo do resultado final
+
+**Próximos passos:**
+
+1. Implementar opção para personalizar a densidade do código de barras
+2. Adicionar suporte para mais formatos de etiquetas comerciais
+3. Implementar opção para salvar configurações de etiquetas favoritas
+4. Adicionar suporte para impressoras térmicas específicas
+
+### Implementação Anterior: Simplificação da Interface de Etiquetas e Melhorias de Contraste
+
+**Status:** Concluído
+
+**Descrição:** Simplificação da interface do gerador de etiquetas, remoção de opções redundantes e melhorias no contraste visual para garantir melhor legibilidade.
+
+**Alterações Realizadas:**
+
+1. **Simplificação da Interface:**
+   - Remoção da opção de cores da etiqueta para simplificar a experiência do usuário
+   - Eliminação dos botões duplicados (mantidos apenas na AppBar)
+   - Padronização do formato das etiquetas para melhor consistência visual
+   - Interface mais limpa e focada nas opções essenciais
+
+2. **Melhorias de Contraste e Legibilidade:**
+   - Aumento do contraste das letras no conteúdo das etiquetas
+   - Adição de negrito (fontWeight: bold) em todos os textos para melhor legibilidade
+   - Garantia de cor preta (PdfColors.black) em todos os textos para máximo contraste
+   - Otimização do layout para melhor aproveitamento do espaço
+
+3. **Correções Técnicas:**
+   - Resolução do erro relacionado ao método withOpacity na classe PdfColor
+   - Remoção de parâmetros desnecessários nos métodos de geração de PDF
+   - Correção do layout para evitar sobreposição de elementos
+   - Melhoria na estrutura do código para maior manutenibilidade
+
+4. **Otimização da Visualização:**
+   - Melhor organização dos elementos na etiqueta
+   - Espaçamento adequado entre os componentes
+   - Tamanhos de fonte otimizados para cada tipo de informação
+   - Posicionamento inteligente baseado na orientação da etiqueta
+
+**Próximos passos:**
+
+1. Implementar opção para personalizar a densidade do código de barras
+2. Adicionar suporte para mais formatos de etiquetas comerciais
+3. Implementar opção para salvar configurações de etiquetas favoritas
+4. Adicionar suporte para impressoras térmicas específicas
+
+### Implementação Anterior: Aprimoramento do Preview de Etiquetas e Correção de Deformações
 
 **Status:** Concluído
 
@@ -183,11 +259,11 @@ Este documento contém o plano de implementação das funcionalidades do aplicat
 
 **Próximos passos:**
 
-1. Implementar opção para personalizar a densidade do código de barras
-2. Adicionar suporte para mais formatos de etiquetas comerciais
-3. Permitir a personalização de cores e estilos de fonte
-4. Implementar opção para salvar configurações de etiquetas favoritas
-5. Adicionar suporte para impressoras térmicas específicas
+1. Implementar sincronização de usuários com serviço de autenticação
+2. Adicionar suporte para upload de avatar personalizado
+3. Implementar sistema de permissões baseado na função do usuário
+4. Adicionar mais opções de personalização de etiquetas
+5. Melhorar a performance do aplicativo em dispositivos de baixo desempenho
 
 ### Implementação Anterior: Melhorias no Layout e Responsividade das Etiquetas
 

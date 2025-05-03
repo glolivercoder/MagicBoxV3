@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/box.dart';
 import '../services/log_service.dart';
@@ -32,37 +33,14 @@ class _BarcodeGeneratorScreenState extends State<BarcodeGeneratorScreen> {
   
   List<Box> _selectedBoxes = [];
   bool _isLoading = false;
-  String? _errorMessage;
-  
-  // Opções de etiqueta
-  String _selectedLabelSize = 'Carta 25,4 x 66,7mm (30 por folha)';
   bool _includeQrCode = true;
   bool _includeBarcode = true;
   bool _includeBoxName = true;
   bool _includeLocation = true;
   bool _includeCategory = false;
-  String _selectedLabelColor = 'Branco';
-  String _selectedLabelFormat = 'Nome, código de barras e ID';
   String _selectedPrinterModel = 'Impressora genérica';
-  
-  // Mapa de cores para a interface do Flutter
-  final Map<String, Color> _uiLabelColors = {
-    'Branco': Colors.white,
-    'Azul Claro': const Color(0xFFCCE5FF),
-    'Verde Claro': const Color(0xFFE6FFE6),
-    'Amarelo Claro': const Color(0xFFFFFFC8),
-    'Rosa Claro': const Color(0xFFFFE6F0),
-    'Cinza Claro': const Color(0xFFE6E6E6),
-  };
-
-  // Mapa de formatos de etiqueta
-  final Map<String, LabelFormat> _labelFormats = {
-    'Nome, código de barras e ID': LabelFormat.nameWithBarcodeAndId,
-    'ID e código de barras': LabelFormat.idWithBarcode,
-    'ID, código de barras e itens': LabelFormat.idWithBarcodeAndItems,
-    'Nome e localização': LabelFormat.nameWithLocation,
-    'Nome, localização e categoria': LabelFormat.nameWithLocationAndCategory,
-  };
+  String _selectedLabelSize = 'Carta 25,4 x 66,7mm (30 por folha)';
+  String _selectedPimacoModel = 'Pimaco 6280';
   
   // Mapa de tamanhos de etiqueta
   final Map<String, LabelPaperType> _labelSizeTypes = {
@@ -112,9 +90,6 @@ class _BarcodeGeneratorScreenState extends State<BarcodeGeneratorScreen> {
       }
     } catch (e) {
       _logService.error('Erro ao carregar caixas', error: e, category: 'barcode_generator');
-      setState(() {
-        _errorMessage = 'Erro ao carregar caixas: $e';
-      });
     } finally {
       setState(() {
         _isLoading = false;
@@ -122,26 +97,28 @@ class _BarcodeGeneratorScreenState extends State<BarcodeGeneratorScreen> {
     }
   }
 
-  // Compartilhar etiquetas como PDF
+  // Compartilhar PDF de etiquetas
   Future<void> _shareLabels() async {
-    if (_selectedBoxes.isEmpty) {
-      _showErrorMessage('Selecione pelo menos uma caixa para gerar etiquetas');
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
     try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      // Verificar se há caixas selecionadas
+      if (_selectedBoxes.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nenhuma caixa selecionada para gerar etiquetas'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
       _logService.info('Compartilhando PDF de etiquetas', category: 'barcode_generator');
       
       // Obter tipo de etiqueta selecionado
       final labelType = _labelSizeTypes[_selectedLabelSize]!;
-      
-      // Obter formato de etiqueta selecionado
-      final labelFormat = _labelFormats[_selectedLabelFormat]!;
       
       // Obter modelo de impressora selecionado
       final printerModel = _printerModels[_selectedPrinterModel]!;
@@ -150,83 +127,82 @@ class _BarcodeGeneratorScreenState extends State<BarcodeGeneratorScreen> {
       await _labelPrintingService.sharePdf(
         boxes: _selectedBoxes,
         paperType: labelType,
-        format: labelFormat,
         includeQrCode: _includeQrCode,
         includeBarcode: _includeBarcode,
         includeBoxName: _includeBoxName,
         includeLocation: _includeLocation,
         includeCategory: _includeCategory,
-        labelColor: _selectedLabelColor,
         printerModel: printerModel,
       );
     } catch (e) {
-      _logService.error('Erro ao compartilhar etiquetas', error: e, category: 'barcode_generator');
-      _showErrorMessage('Erro ao compartilhar etiquetas: ${e.toString()}');
-    } finally {
+      _logService.error('Erro ao compartilhar PDF de etiquetas', error: e, category: 'barcode_generator');
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao compartilhar PDF: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
   
   // Imprimir etiquetas
   Future<void> _printLabels() async {
-    if (_selectedBoxes.isEmpty) {
-      _showErrorMessage('Selecione pelo menos uma caixa para imprimir etiquetas');
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
     try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      // Verificar se há caixas selecionadas
+      if (_selectedBoxes.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nenhuma caixa selecionada para gerar etiquetas'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
       _logService.info('Abrindo diálogo de impressão de etiquetas', category: 'barcode_generator');
       
       // Obter tipo de etiqueta selecionado
       final labelType = _labelSizeTypes[_selectedLabelSize]!;
       
-      // Obter formato de etiqueta selecionado
-      final labelFormat = _labelFormats[_selectedLabelFormat]!;
-      
       // Obter modelo de impressora selecionado
       final printerModel = _printerModels[_selectedPrinterModel]!;
       
-      // Abrir diálogo de impressão
+      // Imprimir etiquetas
       await _labelPrintingService.printLabels(
         boxes: _selectedBoxes,
         paperType: labelType,
-        format: labelFormat,
         includeQrCode: _includeQrCode,
         includeBarcode: _includeBarcode,
         includeBoxName: _includeBoxName,
         includeLocation: _includeLocation,
         includeCategory: _includeCategory,
-        labelColor: _selectedLabelColor,
         printerModel: printerModel,
       );
     } catch (e) {
       _logService.error('Erro ao imprimir etiquetas', error: e, category: 'barcode_generator');
-      _showErrorMessage('Erro ao imprimir etiquetas: ${e.toString()}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao imprimir etiquetas: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
   
-  // Mostrar mensagem de erro
-  void _showErrorMessage(String message) {
-    setState(() {
-      _errorMessage = message;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -235,13 +211,13 @@ class _BarcodeGeneratorScreenState extends State<BarcodeGeneratorScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.save_alt),
-            onPressed: _isLoading ? null : _shareLabels,
             tooltip: 'Salvar PDF',
+            onPressed: _isLoading ? null : _shareLabels,
           ),
           IconButton(
             icon: const Icon(Icons.print),
+            tooltip: 'Imprimir',
             onPressed: _isLoading ? null : _printLabels,
-            tooltip: 'Imprimir etiquetas',
           ),
         ],
       ),
@@ -261,41 +237,6 @@ class _BarcodeGeneratorScreenState extends State<BarcodeGeneratorScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Mensagem de erro (se houver)
-                  if (_errorMessage != null)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.shade300),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.error_outline, color: Colors.red.shade700),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Erro',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.red.shade700,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _errorMessage!,
-                            style: TextStyle(color: Colors.red.shade700),
-                          ),
-                        ],
-                      ),
-                    ),
                   // Cabeçalho
                   const Text(
                     'Gere etiquetas com códigos de barras e QR codes para suas caixas',
@@ -327,32 +268,6 @@ class _BarcodeGeneratorScreenState extends State<BarcodeGeneratorScreen> {
                       labelText: 'Formato da Etiqueta',
                       border: OutlineInputBorder(),
                     ),
-                    value: _selectedLabelFormat,
-                    items: _labelFormats.keys.map((format) {
-                      return DropdownMenuItem<String>(
-                        value: format,
-                        child: Text(format),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedLabelFormat = value!;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Modelo Pimaco
-                  const Text(
-                    'Modelo Pimaco:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Modelo Pimaco',
-                      border: OutlineInputBorder(),
-                    ),
                     value: _selectedLabelSize,
                     items: _labelSizeTypes.keys.map((size) {
                       return DropdownMenuItem<String>(
@@ -364,6 +279,65 @@ class _BarcodeGeneratorScreenState extends State<BarcodeGeneratorScreen> {
                       setState(() {
                         _selectedLabelSize = value!;
                       });
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  // Informações detalhadas sobre a etiqueta selecionada
+                  Builder(
+                    builder: (context) {
+                      final labelType = _labelSizeTypes[_selectedLabelSize]!;
+                      final labelConfig = _labelPrintingService.getLabelConfig(labelType);
+                      
+                      if (labelConfig != null) {
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue[200]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Informações da Etiqueta',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tipo de papel: ${labelConfig['paperSize']}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              Text(
+                                'Modelo: ${labelConfig['paperType']}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              Text(
+                                'Dimensões: ${labelConfig['width'] / PdfPageFormat.mm}mm x ${labelConfig['height'] / PdfPageFormat.mm}mm',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              Text(
+                                'Orientação: ${labelConfig['orientation']}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              Text(
+                                'Etiquetas por folha: ${labelConfig['totalLabels']}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
                     },
                   ),
                   if (_selectedLabelSize == 'Carta 25,4 x 66,7mm (30 por folha)')
@@ -401,32 +375,6 @@ class _BarcodeGeneratorScreenState extends State<BarcodeGeneratorScreen> {
                     onChanged: (value) {
                       setState(() {
                         _selectedPrinterModel = value!;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Cor da etiqueta
-                  const Text(
-                    'Cor da etiqueta:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Cor da Etiqueta',
-                      border: OutlineInputBorder(),
-                    ),
-                    value: _selectedLabelColor,
-                    items: _uiLabelColors.keys.map((color) {
-                      return DropdownMenuItem<String>(
-                        value: color,
-                        child: Text(color),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedLabelColor = value!;
                       });
                     },
                   ),
@@ -642,97 +590,183 @@ class _BarcodeGeneratorScreenState extends State<BarcodeGeneratorScreen> {
                   ),
                   const SizedBox(height: 8),
                   
-                  Center(
-                    child: Container(
-                      width: 200,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(8),
-                        color: _uiLabelColors[_selectedLabelColor],
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (_includeBoxName)
-                            const Text(
-                              'Nome da Caixa',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          
-                          const SizedBox(height: 4),
-                          
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (_includeQrCode)
-                                QrImageView(
-                                  data: 'BOX:1234',
-                                  size: 50,
-                                  version: QrVersions.auto,
-                                ),
-                              
-                              const SizedBox(width: 8),
-                              
-                              if (_includeBarcode)
-                                Container(
-                                  width: 80,
-                                  height: 40,
-                                  color: Colors.grey[300],
-                                  child: const Center(
-                                    child: Text(
-                                      'Código de Barras',
-                                      style: TextStyle(fontSize: 8),
-                                      textAlign: TextAlign.center,
+                  Builder(
+                    builder: (context) {
+                      final labelType = _labelSizeTypes[_selectedLabelSize]!;
+                      final labelConfig = _labelPrintingService.getLabelConfig(labelType);
+                      
+                      if (labelConfig == null) {
+                        return const SizedBox.shrink();
+                      }
+                      
+                      // Calcular proporção para o exemplo
+                      final double labelWidth = labelConfig['width'] / PdfPageFormat.mm;
+                      final double labelHeight = labelConfig['height'] / PdfPageFormat.mm;
+                      final bool isPortrait = labelHeight > labelWidth;
+                      
+                      // Definir tamanho máximo do container de exemplo
+                      final double maxWidth = 280.0;
+                      final double maxHeight = 150.0;
+                      
+                      // Calcular escala para manter a proporção
+                      final double widthRatio = maxWidth / labelWidth;
+                      final double heightRatio = maxHeight / labelHeight;
+                      final double scale = min(widthRatio, heightRatio);
+                      
+                      // Calcular dimensões finais do exemplo
+                      final double exampleWidth = labelWidth * scale;
+                      final double exampleHeight = labelHeight * scale;
+                      
+                      return Center(
+                        child: Container(
+                          width: exampleWidth,
+                          height: exampleHeight,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(4),
+                            color: Colors.white,
+                          ),
+                          padding: const EdgeInsets.all(8),
+                          child: isPortrait
+                              ? Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    if (_includeBoxName)
+                                      const Text(
+                                        'Nome da Caixa',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    
+                                    const SizedBox(height: 4),
+                                    
+                                    if (_includeLocation)
+                                      const Text(
+                                        'Local: Escritório',
+                                        style: TextStyle(fontSize: 10),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    
+                                    if (_includeCategory)
+                                      const Text(
+                                        'Categoria: Documentos',
+                                        style: TextStyle(fontSize: 10),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    
+                                    const Spacer(),
+                                    
+                                    if (_includeQrCode)
+                                      QrImageView(
+                                        data: 'BOX:1234',
+                                        size: min(exampleWidth * 0.6, exampleHeight * 0.3),
+                                        version: QrVersions.auto,
+                                      ),
+                                    
+                                    const SizedBox(height: 4),
+                                    
+                                    if (_includeBarcode)
+                                      Container(
+                                        width: exampleWidth * 0.8,
+                                        height: exampleHeight * 0.15,
+                                        color: Colors.grey[300],
+                                        child: const Center(
+                                          child: Text(
+                                            'Código de Barras',
+                                            style: TextStyle(fontSize: 8),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      ),
+                                    
+                                    const SizedBox(height: 4),
+                                    
+                                    const Text(
+                                      'ID: 1234',
+                                      style: TextStyle(fontSize: 10),
                                     ),
-                                  ),
+                                  ],
+                                )
+                              : Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    if (_includeQrCode)
+                                      QrImageView(
+                                        data: 'BOX:1234',
+                                        size: min(exampleWidth * 0.3, exampleHeight * 0.8),
+                                        version: QrVersions.auto,
+                                      ),
+                                    
+                                    const SizedBox(width: 8),
+                                    
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          if (_includeBoxName)
+                                            const Text(
+                                              'Nome da Caixa',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          
+                                          const SizedBox(height: 2),
+                                          
+                                          if (_includeLocation)
+                                            const Text(
+                                              'Local: Escritório',
+                                              style: TextStyle(fontSize: 10),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          
+                                          if (_includeCategory)
+                                            const Text(
+                                              'Categoria: Documentos',
+                                              style: TextStyle(fontSize: 10),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          
+                                          const SizedBox(height: 2),
+                                          
+                                          const Text(
+                                            'ID: 1234',
+                                            style: TextStyle(fontSize: 10),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    
+                                    const SizedBox(width: 8),
+                                    
+                                    if (_includeBarcode)
+                                      Container(
+                                        width: exampleWidth * 0.3,
+                                        height: exampleHeight * 0.5,
+                                        color: Colors.grey[300],
+                                        child: const Center(
+                                          child: Text(
+                                            'Código de Barras',
+                                            style: TextStyle(fontSize: 8),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                            ],
-                          ),
-                          
-                          const SizedBox(height: 4),
-                          
-                          const Text(
-                            'ID: 1234',
-                            style: TextStyle(fontSize: 10),
-                          ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
             ),
-      bottomNavigationBar: BottomAppBar(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton.icon(
-                onPressed: _selectedBoxes.isEmpty ? null : _shareLabels,
-                icon: const Icon(Icons.save_alt),
-                label: const Text('Salvar PDF'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: _selectedBoxes.isEmpty ? null : _printLabels,
-                icon: const Icon(Icons.print),
-                label: const Text('Imprimir'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
